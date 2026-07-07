@@ -11,7 +11,7 @@ export const config = {
   // Your Chrome profile is named "Chris" (email: chris@socialsaleslab.com)
   // "Default" = the first/main Chrome profile
   chromeProfilePath: process.env.CHROME_PROFILE_PATH || 
-    '/Users/cryptobal24/Library/Application Support/Google/Chrome/Default',
+    `${process.env.HOME}/Library/Application Support/Google/Chrome/Default`,
   
   // Chrome executable path (macOS)
   chromeExecutablePath: process.env.CHROME_EXECUTABLE || 
