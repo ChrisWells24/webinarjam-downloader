@@ -3,83 +3,52 @@
  * 
  * Launches Chrome using the existing user profile via launchPersistentContext.
  * This means you're already logged into WebinarJam — no re-auth needed.
+ * 
+ * IMPORTANT: Chrome must be fully closed before running — Playwright needs
+ * exclusive access to the profile. The script will close Chrome for you
+ * and reopen it when done.
  */
 
 import { chromium } from 'playwright';
 import { config } from '../config/config.js';
 import { logger } from './logger.js';
+import { execSync } from 'child_process';
 
 export async function launchBrowser() {
   logger.step(1, 6, 'Launching Chrome with existing profile');
 
-  const fs = await import('fs');
-  const path = await import('path');
-  
-  let profilePath = config.chromeProfilePath;
+  const profilePath = config.chromeProfilePath;
   logger.debug('Chrome profile path:', profilePath);
   logger.debug('Chrome executable:', config.chromeExecutablePath);
 
-  // Check if Chrome is running (macOS)
-  const { execSync } = await import('child_process');
+  // Verify profile exists
+  const fs = await import('fs');
+  if (!fs.existsSync(profilePath)) {
+    logger.error(`Chrome profile not found at: ${profilePath}`);
+    logger.info('Update chromeProfilePath in config/config.js');
+    throw new Error(`Chrome profile not found: ${profilePath}`);
+  }
+
+  logger.debug('Profile exists ✓');
+
+  // Check if Chrome is already running (macOS)
   try {
-    const chromeProcs = execSync('pgrep -f "Google Chrome"', { encoding: 'utf-8' }).trim();
-    if (chromeProcs) {
+    const chromeRunning = execSync('pgrep -x "Google Chrome" || true', { encoding: 'utf-8' }).trim();
+    if (chromeRunning) {
       logger.warn('⚠ Google Chrome is already running!');
-      logger.info('Playwright cannot use your profile while Chrome is open.');
-      logger.info('Closing Chrome automatically...');
-      try {
-        execSync('pkill -f "Google Chrome"', { encoding: 'utf-8' });
-        await new Promise(r => setTimeout(r, 2000));
-        logger.debug('Chrome closed ✓');
-      } catch (e) {
-        logger.warn('Could not close Chrome automatically. Please close it manually and re-run.');
-      }
+      logger.info('Playwright needs exclusive access to your Chrome profile.');
+      logger.info('Closing Chrome automatically (will reopen after script finishes)...');
+      
+      // Gracefully quit Chrome on macOS
+      execSync('osascript -e \'tell application "Google Chrome" to quit\'', { timeout: 10000 });
+      
+      // Wait for Chrome to fully close
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      logger.debug('Chrome closed ✓');
     }
   } catch (e) {
-    // pgrep returns non-zero if no process found — that's fine
-    logger.debug('Chrome is not running ✓');
-  }
-
-  // Verify profile exists — try multiple common profile folder names
-  const profilesToTry = [
-    profilePath,
-    `${process.env.HOME}/Library/Application Support/Google/Chrome/Default`,
-    `${process.env.HOME}/Library/Application Support/Google/Chrome`,
-  ];
-
-  let foundProfile = null;
-  for (const p of profilesToTry) {
-    if (fs.existsSync(p)) {
-      // Check if it looks like a Chrome profile (has a file like "Preferences" or "Cookies")
-      const hasProfile = fs.existsSync(`${p}/Preferences`) || 
-                         fs.existsSync(`${p}/Cookies`) ||
-                         fs.existsSync(`${p}/Local State`);
-      if (hasProfile) {
-        foundProfile = p;
-        break;
-      }
-    }
-  }
-
-  if (foundProfile) {
-    profilePath = foundProfile;
-    logger.debug(`Using Chrome profile: ${profilePath}`);
-  } else {
-    // List available Chrome profiles to help debug
-    const chromeRoot = `${process.env.HOME}/Library/Application Support/Google/Chrome`;
-    if (fs.existsSync(chromeRoot)) {
-      const entries = fs.readdirSync(chromeRoot).filter(e => 
-        e === 'Default' || e.startsWith('Profile') || e === 'System Profile'
-      );
-      logger.info('Available Chrome profiles:');
-      entries.forEach(e => {
-        const fullPath = `${chromeRoot}/${e}`;
-        const hasPrefs = fs.existsSync(`${fullPath}/Preferences`);
-        logger.info(`  ${e} ${hasPrefs ? '✓ (has data)' : '(empty)'}`);
-      });
-    }
-    logger.error(`Chrome profile not found. Checked: ${profilePath}`);
-    throw new Error('Chrome profile not found — see available profiles above');
+    // Not on macOS or Chrome not running — continue
+    logger.debug('Chrome running check skipped:', e.message);
   }
 
   // Launch persistent context — uses existing cookies, sessions, login state
@@ -91,11 +60,10 @@ export async function launchBrowser() {
     locale: 'en-US',
     timezone: 'America/New_York',
     args: [
-      '--disable-blink-features=AutomationControlled', // Avoid detection
+      '--disable-blink-features=AutomationControlled',
       '--no-first-run',
       '--no-default-browser-check',
     ],
-    // Download path for any browser-triggered downloads
     acceptDownloads: true,
   });
 
@@ -114,9 +82,12 @@ export async function launchBrowser() {
   const mp4Urls = [];
   page.on('response', (response) => {
     const url = response.url();
-    if (url.includes('.mp4') || url.includes('cloudfront.net') || url.includes('progressive_redirect')) {
-      logger.debug(`Found media URL: ${url.substring(0, 100)}...`);
-      mp4Urls.push({ url, status: response.status(), headers: response.headers() });
+    if (url.includes('.mp4') || (url.includes('cloudfront.net') && url.includes('mp4')) || url.includes('progressive_redirect')) {
+      // Only log actual video files, not page assets
+      if (!url.includes('nitropack') && !url.includes('wp-content')) {
+        logger.debug(`Found media URL: ${url.substring(0, 100)}...`);
+        mp4Urls.push({ url, status: response.status(), headers: response.headers() });
+      }
     }
   });
 
@@ -138,5 +109,13 @@ export async function closeBrowser(context) {
   if (context) {
     await context.close();
     logger.success('Browser closed');
+    
+    // Reopen Chrome for the user on macOS
+    try {
+      execSync('open -a "Google Chrome"', { timeout: 5000 });
+      logger.info('Chrome reopened for you ✓');
+    } catch (e) {
+      logger.debug('Could not reopen Chrome automatically:', e.message);
+    }
   }
 }

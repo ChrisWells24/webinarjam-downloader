@@ -9,8 +9,9 @@ export const config = {
   // === Chrome Profile (macOS) ===
   // Path to your existing Chrome profile so you don't have to log in
   // The script will try to find the right profile automatically.
-  // If you have multiple profiles, look for folders like "Default", "Profile 1", etc.
-  // To find your profile: open Chrome, go to chrome://version, check "Profile Path"
+  // Path to your existing Chrome profile so you don't have to log in
+  // The username on this Mac is "cryptobal24"
+  // "Default" is the main profile — change to "Profile 1" etc. if you use a different one
   chromeProfilePath: process.env.CHROME_PROFILE_PATH || 
     `${process.env.HOME}/Library/Application Support/Google/Chrome/Default`,
   
@@ -19,7 +20,12 @@ export const config = {
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 
   // === WebinarJam ===
-  webinarJamURL: 'https://ondemand.webinarjam.com/',
+  // The dashboard URL (NOT the marketing homepage)
+  // app.webinarjam.com is where your webinars live
+  webinarJamURL: 'https://app.webinarjam.com/',
+  
+  // The on-demand/replay URL if different from dashboard
+  onDemandURL: 'https://ondemand.webinarjam.com/',
   
   // Which webinar to download (set to null to pick the first one)
   // You can find the webinar ID in the URL when you open it in browser
