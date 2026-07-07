@@ -37,15 +37,47 @@ async function main() {
     page = browser.page;
     mp4Urls = browser.mp4Urls;
 
-    // Test mode — just verify browser launches and we can reach WebinarJam
+    // Test mode — verify browser launches and we can reach WebinarJam
     if (config.testMode) {
       logger.info('TEST MODE: Opening WebinarJam to verify login...');
+      logger.info('Browser will stay open. Take a look at the window.');
       await page.goto(config.webinarJamURL, { waitUntil: 'networkidle', timeout: 30000 });
       logger.info(`Page title: ${await page.title()}`);
       logger.info(`Page URL: ${page.url()}`);
       await page.screenshot({ path: `${config.logDir}/test_mode_screenshot.png` });
-      logger.success('Test complete — browser launches and WebinarJam is reachable');
-      logger.info('If you see your dashboard in the screenshot, you are logged in ✓');
+      
+      // Check for login indicators
+      const bodyText = await page.textContent('body').catch(() => '');
+      const hasLogin = bodyText?.toLowerCase().includes('sign in') || 
+                       bodyText?.toLowerCase().includes('log in') ||
+                       bodyText?.toLowerCase().includes('password');
+      const hasDashboard = bodyText?.toLowerCase().includes('webinar') ||
+                          bodyText?.toLowerCase().includes('replay') ||
+                          bodyText?.toLowerCase().includes('dashboard');
+      
+      if (hasLogin && !hasDashboard) {
+        logger.warn('⚠ NOT LOGGED IN — WebinarJam is showing a login page');
+        logger.info('To fix: Open Chrome normally, go to WebinarJam, log in, then re-run this test');
+        logger.info('IMPORTANT: Close ALL Chrome windows before running this script —');
+        logger.info('Playwright cannot use your profile if Chrome is already running');
+      } else if (hasDashboard) {
+        logger.success('✓ LOGGED IN — WebinarJam dashboard is visible');
+      } else {
+        logger.info('Could not determine login status — check the browser window');
+      }
+      
+      // Keep browser open and wait for user
+      logger.separator();
+      logger.info('Browser is open. Check the Chrome window to see WebinarJam.');
+      logger.info('Take a screenshot if needed. Then come back here and press Enter to close.');
+      logger.separator();
+      
+      // Wait for user to press Enter
+      const { createInterface } = await import('readline');
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      await new Promise(resolve => rl.question('', resolve));
+      rl.close();
+      
       await closeBrowser(context);
       return;
     }

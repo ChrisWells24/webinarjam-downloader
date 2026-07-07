@@ -8,8 +8,9 @@
 export const config = {
   // === Chrome Profile (macOS) ===
   // Path to your existing Chrome profile so you don't have to log in
-  // Your Chrome profile is named "Chris" (email: chris@socialsaleslab.com)
-  // "Default" = the first/main Chrome profile
+  // The script will try to find the right profile automatically.
+  // If you have multiple profiles, look for folders like "Default", "Profile 1", etc.
+  // To find your profile: open Chrome, go to chrome://version, check "Profile Path"
   chromeProfilePath: process.env.CHROME_PROFILE_PATH || 
     `${process.env.HOME}/Library/Application Support/Google/Chrome/Default`,
   
@@ -21,6 +22,7 @@ export const config = {
   webinarJamURL: 'https://ondemand.webinarjam.com/',
   
   // Which webinar to download (set to null to pick the first one)
+  // You can find the webinar ID in the URL when you open it in browser
   targetWebinarId: null,
   
   // Which replay to download (set to null to pick the first replay)
@@ -28,7 +30,6 @@ export const config = {
 
   // === Download Settings ===
   // Path to your external hard drive
-  // "Chris Drive" as shown on desktop — note the space
   downloadDir: process.env.DOWNLOAD_DIR || '/Volumes/Chris Drive/webinarjam-replays',
   
   // File naming pattern: {date}_{webinarName}.mp4
