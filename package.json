@@ -1,0 +1,14 @@
+{
+  "name": "webinarjam-downloader",
+  "version": "1.0.0",
+  "description": "Playwright-based WebinarJam replay downloader using existing Chrome profile",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "dry-run": "node src/main.js --dry-run",
+    "test": "node src/main.js --test"
+  },
+  "dependencies": {
+    "playwright": "^1.61.0"
+  }
+}
